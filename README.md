@@ -29,7 +29,8 @@ A real-time virtual drawing application that allows users to draw in the air usi
 
 
 ## 📸 Demo
-(Add your screen recording here)
+
+
 
 
 ## 💡 Future Improvements
