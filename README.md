@@ -1,3 +1,7 @@
+
+https://github.com/user-attachments/assets/6c98d3eb-6735-4594-a3e1-ec2545675d41
+
+https://github.com/user-attachments/assets/ec6cfac0-fc17-4839-a2a8-2b254ec5e1aa
 # AirDraw AI 🎨
 
 A real-time virtual drawing application that allows users to draw in the air using hand gestures and computer vision.
@@ -30,6 +34,8 @@ A real-time virtual drawing application that allows users to draw in the air usi
 
 ## 📸 Demo
 
+
+https://github.com/user-attachments/assets/5c359b88-bc2b-4194-b184-9d527f95ba26
 
 
 
