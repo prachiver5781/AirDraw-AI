@@ -38,7 +38,6 @@ A real-time virtual drawing application that allows users to draw in the air usi
 https://github.com/user-attachments/assets/5c359b88-bc2b-4194-b184-9d527f95ba26
 
 
-
 ## 💡 Future Improvements
 - Multiple brush styles
 - Save drawings
