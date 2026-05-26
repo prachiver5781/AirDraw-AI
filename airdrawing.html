@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Hand Draw - Precision Update</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+
+    <style>
+        body { margin: 0; padding: 0; background: #0a0a0a; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #00f2ff;
+            color: white;
+            display: none; 
+            z-index: 100;
+        }
+
+        .video-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 180px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            transform: scaleX(-1);
+        }
+
+        .indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #00f2ff;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00f2ff;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        input { display: block; margin-top: 10px; width: 100%; cursor: pointer; }
+        label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #00f2ff; }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <label>Neon Color</label>
+        <input type="color" id="colorPicker" value="#00f2ff">
+        <br>
+        <label>Brush Size</label>
+        <input type="range" id="thickness" min="2" max="30" value="10">
+        <p style="font-size: 10px; margin-top: 10px; opacity: 0.7;">FIST TO CLOSE SETTINGS</p>
+    </div>
+
+    <div class="indicator" id="modeText">MODE: IDLE</div>
+    <video class="video-container" playsinline></video>
+
+    <script>
+        const videoElement = document.getElementsByClassName('video-container')[0];
+        const controls = document.getElementById('controls');
+        const colorPicker = document.getElementById('colorPicker');
+        const thicknessSlider = document.getElementById('thickness');
+        const modeText = document.getElementById('modeText');
+        
+        let fingerX = 0, fingerY = 0;
+        let isDrawing = false;
+        let isErasing = false;
+        let points = []; 
+
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            background(10);
+        }
+
+        function draw() {
+            // Re-draw background every frame to keep lines permanent without "ghosting"
+            background(10); 
+            
+            noFill();
+            strokeCap(ROUND);
+            strokeJoin(ROUND);
+
+            // Eraser logic
+            if (isErasing) {
+                // Show eraser cursor
+                stroke(255, 100);
+                strokeWeight(2);
+                ellipse(fingerX, fingerY, 50, 50);
+                
+                // Remove points within radius
+                points = points.filter(p => {
+                    if (!p) return true;
+                    return dist(fingerX, fingerY, p.x, p.y) > 30;
+                });
+            }
+
+            // Drawing Logic
+            if (isDrawing) {
+                points.push({
+                    x: fingerX, 
+                    y: fingerY, 
+                    color: colorPicker.value, 
+                    size: thicknessSlider.value
+                });
+            } else {
+                // This 'null' acts as a break so lines don't connect when you lift your finger
+                if (points.length > 0 && points[points.length - 1] !== null) {
+                    points.push(null);
+                }
+            }
+
+            // Render all lines
+            for (let i = 1; i < points.length; i++) {
+                if (points[i] && points[i-1]) {
+                    let p = points[i];
+                    drawingContext.shadowBlur = p.size;
+                    drawingContext.shadowColor = p.color;
+                    stroke(p.color);
+                    strokeWeight(p.size);
+                    line(points[i-1].x, points[i-1].y, p.x, p.y);
+                }
+            }
+
+            // Prevent memory lag by keeping the last 3000 points
+            if (points.length > 3000) points.shift();
+        }
+
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+
+                // Map index finger tip
+                fingerX = (1 - landmarks[8].x) * width;
+                fingerY = landmarks[8].y * height;
+
+                // Finger detection logic
+                const indexUp = landmarks[8].y < landmarks[6].y;
+                const middleUp = landmarks[12].y < landmarks[10].y;
+                const ringUp = landmarks[16].y < landmarks[14].y;
+                const pinkyUp = landmarks[20].y < landmarks[18].y;
+
+                // 1. ERASER: Index + Middle ONLY
+                if (indexUp && middleUp && !ringUp && !pinkyUp) {
+                    isDrawing = false;
+                    isErasing = true;
+                    controls.style.display = "none";
+                    modeText.innerText = "MODE: ERASER";
+                }
+                // 2. DRAW: Index ONLY
+                else if (indexUp && !middleUp && !ringUp && !pinkyUp) {
+                    isDrawing = true;
+                    isErasing = false;
+                    controls.style.display = "none";
+                    modeText.innerText = "MODE: WRITING";
+                } 
+                // 3. SETTINGS: Fist
+                else if (!indexUp && !middleUp && !ringUp && !pinkyUp) {
+                    isDrawing = false;
+                    isErasing = false;
+                    controls.style.display = "block";
+                    modeText.innerText = "MODE: SETTINGS";
+                }
+                // 4. CLEAR: Full Palm
+                else if (indexUp && middleUp && ringUp && pinkyUp) {
+                    points = [];
+                    isDrawing = false;
+                    isErasing = false;
+                    modeText.innerText = "MODE: CLEARING";
+                }
+                else {
+                    isDrawing = false;
+                    isErasing = false;
+                    modeText.innerText = "MODE: IDLE";
+                }
+            }
+        }
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.75,
+            minTrackingConfidence: 0.75
+        });
+
+        hands.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+        camera.start();
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+    </script>
+</body>
+</html>
